@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="super_heroes">
+        <item>Iron Man</item>
+        <item>Spider-Man</item>
+        <item>Hulk</item>
+    </string-array>
+
+
+</resources>
