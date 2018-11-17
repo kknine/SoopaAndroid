@@ -1,0 +1,32 @@
+[{
+  "lat": 51.2,
+  "lng": 0,
+  "crime_type": "Violence",
+  "crime_duration": 10,
+  "vantage_points": [{
+    "lat": 51.1,
+    "lng": 0,
+    "height": 150
+  }, {
+    "lat": 51.3,
+    "lng": 0,
+    "height": 100
+  }]
+},
+
+  {
+    "lat": 51,
+    "lng": -0.0017,
+    "crime_type": "Violence",
+    "crime_duration": 10,
+    "vantage_points": [{
+      "lat": 51,
+      "lng": -0.0012,
+      "height": 58
+    }, {
+      "lat": 51,
+      "lng": -0.02,
+      "height": 17
+    }]
+  }
+]
