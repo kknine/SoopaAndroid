@@ -30,6 +30,7 @@
             android:layout_gravity="left"
             android:layout_weight="0"
             android:onClick="showMeAndCrimes"
+            android:scaleType="centerInside"
             android:src="@drawable/current_location" />
     </LinearLayout>
 

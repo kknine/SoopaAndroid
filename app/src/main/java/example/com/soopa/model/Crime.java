@@ -13,17 +13,20 @@ public class Crime {
     private final String crimeType;
     private final int crimeDuration;
     private final ArrayList<VantagePoint> vantagePoints;
+    private final int severity;
     public static final String SERVER_LAT = "lat";
     public static final String SERVER_LNG = "lng";
-    public static final String SERVER_CRIME_TYPE = "crime_type";
+    public static final String SERVER_CRIME_TYPE = "type";
     public static final String SERVER_CRIME_DURATION = "crime_duration";
     public static final String SERVER_VANTAGE_POINTS = "vantage_points";
+    public static final String SERVER_SEVERITY = "severity";
 
-    public Crime(LatLng location, String crimeType, int crimeDuration, ArrayList<VantagePoint> vantagePoints) {
+    public Crime(LatLng location, String crimeType, int crimeDuration, ArrayList<VantagePoint> vantagePoints, int severity) {
         this.location = location;
         this.crimeType = crimeType;
         this.crimeDuration = crimeDuration;
         this.vantagePoints = vantagePoints;
+        this.severity = severity;
     }
 
     public Crime(JSONObject jsonCrime) throws JSONException {
@@ -37,6 +40,7 @@ public class Crime {
         this.crimeType = jsonCrime.getString(Crime.SERVER_CRIME_TYPE);
         this.crimeDuration = jsonCrime.getInt(Crime.SERVER_CRIME_DURATION);
         this.vantagePoints = vantagePoints;
+        this.severity = jsonCrime.getInt(Crime.SERVER_SEVERITY);
     }
 
     public LatLng getLocation() {
@@ -53,6 +57,10 @@ public class Crime {
 
     public ArrayList<VantagePoint> getVantagePoints() {
         return vantagePoints;
+    }
+
+    public int getSeverity() {
+        return severity;
     }
 
     public static ArrayList<Crime> fromJSONArray(JSONArray jsonArray) throws JSONException {

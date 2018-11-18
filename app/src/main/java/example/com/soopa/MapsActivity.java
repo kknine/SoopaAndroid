@@ -10,13 +10,20 @@ import android.graphics.drawable.BitmapDrawable;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Handler;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
+import android.support.v4.app.FragmentManager;
 import android.support.v4.content.ContextCompat;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.Spinner;
+import android.widget.TextView;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -34,12 +41,19 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.maps.model.TileOverlay;
 import com.google.android.gms.maps.model.TileOverlayOptions;
 import com.google.maps.android.heatmaps.HeatmapTileProvider;
+import com.google.maps.android.heatmaps.WeightedLatLng;
 
 import org.json.JSONException;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import example.com.soopa.server.Server;
 import example.com.soopa.server.ServerUtils;
@@ -61,15 +75,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private boolean locationSet = false;
     private LocationManager mLocationManager;
     private LocationListener mLocationListener;
-    private Marker currentLocation;
+    private Marker currentLocation = null;
     public static final int LOCATION_REFRESH_PERIOD = 2000;
     public static final String[] SUPERHEROES = {"Iron Man", "Spider-Man", "Hulk"};
     private Polyline route;
     private int currentSuperNum = 0;
     private String chosenVantagePointId = null;
+    private boolean locationDetermined = false;
+    private boolean started = false;
+    ScheduledExecutorService mScheduler;
+    TimerTask mTask;
+    ScheduledFuture<?> mScheduledFuture;
+    Timer mTimer;
+    private boolean crimeLoading = false;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        setTheme(R.style.AppTheme);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
 
@@ -85,6 +108,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             }
         });
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -94,8 +118,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mLocationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         mLocationListener = new LocationListener() {
             public void onLocationChanged(Location location) {
+                System.out.println("location");
                 // Called when a new location is found by the network location provider.
                 updateCurrentLocation(new LatLng(location.getLatitude(), location.getLongitude()));
+
                 if (!locationSet) {
                     if (done) {
                         ArrayList<LatLng> points = new ArrayList<>();
@@ -117,6 +143,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         };
 
         checkLocationPermission();
+
+
     }
 
     public static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
@@ -138,11 +166,84 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 == PackageManager.PERMISSION_GRANTED) {
             mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, LOCATION_REFRESH_PERIOD, 0, mLocationListener);
         }
+        if(started) {
+            if(mTimer==null) {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        startUpdatingHeatMap();
+                    }
+                }).start();
+            }
+        }
+    }
+
+    private void startUpdatingHeatMap(){
+        System.out.println("fired");
+        started = true;
+        final LatLng position = currentLocation.getPosition();
+        mTimer = new Timer();
+        mTask = new TimerTask() {
+            @Override
+            public void run() {
+                mServer.getHeatMap(new ServerUtils.Callback<ArrayList<WeightedLatLng>, String>() {
+                    @Override
+                    public void onSuccess(ArrayList<WeightedLatLng> list) {
+                        addHeatMap(list);
+                    }
+
+                    @Override
+                    public void onFail(String obj) {
+                        System.out.println(obj);
+                    }
+                });
+                if(!crimeLoading) {
+                    mServer.getLiveCrimeData(new ServerUtils.Callback<ArrayList<Crime>, String>() {
+                        @Override
+                        public void onSuccess(final ArrayList<Crime> crimeList) {
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    System.out.println(crimeList.size());
+                                    cleanPreviousCrimes();
+                                    addCrimes(crimeList);
+                                    crimeLoading = false;
+                                }
+                            });
+
+                        }
+
+                        @Override
+                        public void onFail(String obj) {
+                            System.out.println(obj);
+                            crimeLoading = false;
+                        }
+                    }, position, 30, "Spiderman");
+                    crimeLoading = true;
+                }
+            }
+
+        };
+        mTimer.schedule(mTask, 5000, 5000);
+
+    }
+
+    protected void onDestroy() {
+        super.onDestroy();
+    }
+    protected void onStop() {
+        super.onStop();
+
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        System.out.println("onPause");
+        if(mTimer!=null) {
+            mTimer.cancel();
+            mTimer.purge();
+        }
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -173,18 +274,43 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public boolean onMarkerClick(final Marker marker) {
                 if(displayedCrimes.containsKey(marker.getId())) {
-                    cleanPreviousVantagePoints();
-                    addVantagePoints(displayedCrimes.get(marker.getId()).getVantagePoints());
-                    LatLngBounds.Builder builder = new LatLngBounds.Builder();
-                    for (Marker vP : displayedVantageMarkers) {
-                        builder.include(vP.getPosition());
-                    }
-                    builder.include(marker.getPosition());
-                    LatLngBounds bounds = builder.build();
-                    int width = getResources().getDisplayMetrics().widthPixels;
-                    int height = getResources().getDisplayMetrics().heightPixels;
-                    int padding = (int) (width * 0.2); // offset from edges of the map 20% of screen
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, width, height, padding));
+                    final Crime crime = displayedCrimes.get(marker.getId());
+                    AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(MapsActivity.this);
+                    LayoutInflater inflater = MapsActivity.this.getLayoutInflater();
+
+                    View dialogView= inflater.inflate(R.layout.dialog, null);
+                    dialogBuilder.setView(dialogView);
+                    ImageView iv = (ImageView) dialogView.findViewById(R.id.imageView);
+                    iv.setImageDrawable(getResources().getDrawable(getResourceForCrime(crime.getCrimeType())));
+                    TextView type = (TextView) dialogView.findViewById(R.id.crime_type);
+                    type.setText(crime.getCrimeType());
+                    TextView duration = (TextView) dialogView.findViewById(R.id.estimated);
+                    duration.setText("Estimated time: " + Integer.toString((int)crime.getCrimeDuration()));
+                    TextView severity = (TextView) dialogView.findViewById(R.id.severity);
+                    severity.setText("Severity: " + Integer.toString(crime.getSeverity()));
+
+                    Button button = (Button)dialogView.findViewById(R.id.accept);
+                    final AlertDialog dialog = dialogBuilder.create();
+                    button.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            cleanPreviousVantagePoints();
+                            addVantagePoints(crime.getVantagePoints());
+                            LatLngBounds.Builder builder = new LatLngBounds.Builder();
+                            for (Marker vP : displayedVantageMarkers) {
+                                builder.include(vP.getPosition());
+                            }
+                            builder.include(marker.getPosition());
+                            LatLngBounds bounds = builder.build();
+                            int width = getResources().getDisplayMetrics().widthPixels;
+                            int height = getResources().getDisplayMetrics().heightPixels;
+                            int padding = (int) (width * 0.2); // offset from edges of the map 20% of screen
+                            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, width, height, padding));
+                            dialog.cancel();
+                        }
+                    });
+                    dialog.show();
+
                 } else if(displayedVantageMarkers.contains(marker)) {
                     final VantagePoint vP = displayedVantagePoints.get(marker.getId());
                     AlertDialog.Builder builder = new AlertDialog.Builder(MapsActivity.this);
@@ -211,19 +337,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 return true;
             }
         });
-        mServer.getLiveCrimeData(new ServerUtils.Callback<ArrayList<Crime>, String>() {
-            @Override
-            public void onSuccess(ArrayList<Crime> crimeList) {
-                cleanPreviousCrimes();
-                addCrimes(crimeList);
-            }
 
-            @Override
-            public void onFail(String obj) {
 
-            }
-        });
-        //addHeatMap();
+
 
     }
 
@@ -244,31 +360,33 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void addCrimes(ArrayList<Crime> crimeList) {
+        int prevNumOfCrimes = displayedCrimeMarkers.size();
         int iconHeight = 100;
         int iconWidth = 100;
-        BitmapDrawable originalIcon = (BitmapDrawable)getResources().getDrawable(R.drawable.crime);
-        Bitmap b = originalIcon.getBitmap();
-        Bitmap smallIcon = Bitmap.createScaledBitmap(b, iconWidth, iconHeight, false);
         for(Crime crime : crimeList) {
             MarkerOptions markerOptions = new MarkerOptions();
             markerOptions.position(crime.getLocation());
             markerOptions.title(crime.getCrimeType());
+            BitmapDrawable originalIcon = (BitmapDrawable)getResources().getDrawable(getResourceForCrime(crime.getCrimeType()));
+            Bitmap b = originalIcon.getBitmap();
+            Bitmap smallIcon = Bitmap.createScaledBitmap(b, iconWidth, iconHeight, false);
             markerOptions.icon(BitmapDescriptorFactory.fromBitmap(smallIcon));
             Marker marker = mMap.addMarker(markerOptions);
             displayedCrimeMarkers.add(marker);
             displayedCrimes.put(marker.getId(),crime);
         }
-        if(!done) {
+        if((!done)||(prevNumOfCrimes<displayedCrimeMarkers.size())) {
+            ArrayList<LatLng> points = new ArrayList<>();
             LatLngBounds.Builder builder = new LatLngBounds.Builder();
             for (Marker marker2 : displayedCrimeMarkers) {
-                builder.include(marker2.getPosition());
+                points.add(marker2.getPosition());
             }
-            LatLngBounds bounds = builder.build();
-            int width = getResources().getDisplayMetrics().widthPixels;
-            int height = getResources().getDisplayMetrics().heightPixels;
-            int padding = (int) (width * 0.2); // offset from edges of the map 20% of screen
-            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, width, height, padding));
-            done = true;
+            if(!points.isEmpty()) {
+                points.add(currentLocation.getPosition());
+                centerCamera(points);
+                done = true;
+            }
+
         }
 
 
@@ -293,8 +411,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private void updateCurrentLocation(LatLng position) {
         if(currentLocation != null) {
-            Marker marker = currentLocation;
-            MarkerAnimation.animateMarkerToICS(marker, position, new LatLngInterpolator.Spherical());
+            if((Math.abs(position.longitude-currentLocation.getPosition().longitude)>0.001)||(Math.abs(position.latitude-currentLocation.getPosition().latitude)>0.001)) {
+                Marker marker = currentLocation;
+                MarkerAnimation.animateMarkerToICS(marker, position, new LatLngInterpolator.Spherical());
+                if (mTimer != null) {
+                    mTimer.cancel();
+                    mTimer.purge();
+                    mTimer = null;
+                }
+
+                final Handler handler = new Handler();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        startUpdatingHeatMap();
+                    }
+                }, 3000);
+
+            }
         } else {
             MarkerOptions markerOptions = new MarkerOptions();
             markerOptions.position(position);
@@ -318,7 +452,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             Bitmap smallIcon = Bitmap.createScaledBitmap(b, iconWidth, iconHeight, false);
             markerOptions.icon(BitmapDescriptorFactory.fromBitmap(smallIcon));
             currentLocation = mMap.addMarker(markerOptions);
+            startUpdatingHeatMap();
         }
+
+
     }
 
     public void showMeAndCrimes(View v) {
@@ -443,7 +580,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         BitmapDrawable originalIcon = (BitmapDrawable)getResources().getDrawable(resource);
         Bitmap b = originalIcon.getBitmap();
         Bitmap smallIcon = Bitmap.createScaledBitmap(b, iconWidth, iconHeight, false);
-        currentLocation.setIcon(BitmapDescriptorFactory.fromBitmap(smallIcon));
+        if(currentLocation!=null)
+            currentLocation.setIcon(BitmapDescriptorFactory.fromBitmap(smallIcon));
         if((superNum != currentSuperNum)&&(chosenVantagePointId!=null)) {
             navigate(chosenVantagePointId);
             currentSuperNum = superNum;
@@ -451,19 +589,50 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
-    private void addHeatMap() {
-        ArrayList<LatLng> list = new ArrayList<>();
-        try {
-            list = Utils.readPoints(this,R.raw.json_data);
-        } catch (JSONException e) {
-            e.printStackTrace();
+    private void addHeatMap(ArrayList<WeightedLatLng> list) {
+        if (mOverlay != null)
+            mOverlay.clearTileCache();
+        if (list.size() > 0) {
+            mProvider = new HeatmapTileProvider.Builder()
+                    .weightedData(list)
+                    .radius(50)
+                    .build();
+
+            mOverlay = mMap.addTileOverlay(new TileOverlayOptions().tileProvider(mProvider));
         }
-        mProvider = new HeatmapTileProvider.Builder()
-                .data(list)
-                .build();
-        // Add a tile overlay to the map, using the heat map tile provider.
-        mOverlay = mMap.addTileOverlay(new TileOverlayOptions().tileProvider(mProvider));
     }
 
-
+    private int getResourceForCrime(String type) {
+        switch(type) {
+            case "Violence and sexual offences":
+                return R.drawable.violent1;
+            case "Anti-social behaviour":
+                return R.drawable.asbo1;
+            case "Burglary":
+                return R.drawable.burglary1;
+            case "Criminal damage and arson":
+                return R.drawable.arson1;
+            case "Other theft":
+                return R.drawable.shoplift1;
+            case "Possession of weapons":
+                return R.drawable.weapons1;
+            case "Robbery":
+                return R.drawable.robbery1;
+            case "Theft from the person":
+                return R.drawable.robbery1;
+            case "Vehicle crime":
+                return R.drawable.vehicle1;
+            case "Other crime":
+                return R.drawable.robbery1;
+            case "Public order":
+                return R.drawable.publicorder1;
+            case "Shoplifting":
+                return R.drawable.shoplift1;
+            case "Drugs":
+                return R.drawable.drugs1;
+            case "Bicycle theft":
+                return R.drawable.bicycle1;
+        }
+        return R.drawable.crime;
+    }
 }

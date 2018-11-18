@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android" android:opacity="opaque">
+
+    <item android:drawable="@android:color/white"/>
+
+    <item>
+        <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+            android:gravity="center_horizontal|center_vertical"
+
+            android:src="@drawable/soopa_icon" />
+    </item>
+
+</layer-list>
