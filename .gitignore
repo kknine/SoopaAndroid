@@ -1,6 +1,7 @@
 *.iml
 .gradle
 /local.properties
+.idea
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
@@ -8,3 +9,6 @@
 /build
 /captures
 .externalNativeBuild
+app/src/debug/res/values/mapquest_api.xml
+app/src/debug/res/values/google_maps_api.xml
+

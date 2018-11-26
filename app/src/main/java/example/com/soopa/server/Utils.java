@@ -14,13 +14,23 @@ import com.android.volley.VolleyError;
 
 import static android.content.ContentValues.TAG;
 
-public class ServerUtils {
+public class Utils {
+
+    /**
+     * Ueful interface for making http requests
+     * @param <A> Type of object returned in case of success
+     * @param <B> Type of object returned in case of failure (usually String)
+     */
     public interface Callback<A,B> {
         void onSuccess(A obj);
         void onFail(B obj);
     }
 
-
+    /**
+     * Checks if the device is ready for querying online
+     * @param context Context
+     * @return True if online query can be sent, False otherwise
+     */
     public static boolean isReadyForQuery(Context context) {
         ConnectivityManager cm = (ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo activeNetwork = null;
@@ -33,7 +43,6 @@ public class ServerUtils {
     }
 
     static class ServerResponse<A> {
-
         /**
          * Executes onFail method of the Callback with suitable error message (depending on the type of error)
          * @param callback Callback whose second Object in a constructor is String (for error message)
@@ -46,11 +55,11 @@ public class ServerUtils {
                     String errorType = "";
                     Log.d(TAG, "Error on login");
                     if (error instanceof TimeoutError || error instanceof NoConnectionError) {
-                        errorType = ServerConstants.CONNECTION_ERROR;
+                        errorType = Constants.CONNECTION_ERROR;
                     } else if (error instanceof AuthFailureError) {
-                        errorType = ServerConstants.WRONG_CREDENTIALS_ERROR;
+                        errorType = Constants.WRONG_CREDENTIALS_ERROR;
                     } else {
-                        errorType = ServerConstants.UNKNOWN_ERROR;
+                        errorType = Constants.UNKNOWN_ERROR;
                         NetworkResponse networkResponse = error.networkResponse;
                         if (networkResponse != null) {
                             Log.d(TAG, "Status code: " + String.valueOf(networkResponse.statusCode));

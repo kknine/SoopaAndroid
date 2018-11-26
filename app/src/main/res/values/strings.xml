@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">Soopa</string>
     <string name="title_activity_maps">Map</string>
+    <string name="estimated_time">Estimated time</string>
+    <string name="severity">Severity</string>
+    <string name="crime_type">Crime type</string>
+    <string name="accept_crime">Accept crime</string>
 </resources>

@@ -19,7 +19,6 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 
 import example.com.soopa.R;
-import example.com.soopa.Utils;
 import example.com.soopa.model.Crime;
 
 public class Server {
@@ -34,13 +33,20 @@ public class Server {
         mRequestQueue = Volley.newRequestQueue(context);
     }
 
-    public void getLiveCrimeData(final ServerUtils.Callback<ArrayList<Crime>,String> callback, LatLng location, double radius, String superhero) {
-        if(ServerUtils.isReadyForQuery(context)) {
+    /**
+     * Fetches live crime data from the server and converts them into ArrayList of Crime objects
+     * @param callback Callback to pass data
+     * @param location The point for which we want the crime data (usually our location)
+     * @param radius Radius in which we want to look for crimes (around location)
+     * @param superhero Name of the superhero for which we want to search for crimes
+     */
+    public void getLiveCrimeData(final Utils.Callback<ArrayList<Crime>,String> callback, LatLng location, double radius, String superhero) {
+        if(Utils.isReadyForQuery(context)) {
             String latQuery = "lat=" + location.latitude;
             String lngQuery = "lng=" + location.longitude;
             String radiusQuery = "radius=" + Double.toString(radius);
             String superQuery = "superhero=" + superhero;
-            String url = ServerConstants.API_URL + "active_crimes?" + latQuery + "&" + lngQuery + "&" + radiusQuery + "&" + superQuery;
+            String url = Constants.API_URL + "active_crimes?" + latQuery + "&" + lngQuery + "&" + radiusQuery + "&" + superQuery;
             System.out.println(url);
             JsonArrayRequest jsonObjectRequest = new JsonArrayRequest(Request.Method.GET, url, null,
                     new Response.Listener<JSONArray>() {
@@ -48,15 +54,13 @@ public class Server {
                         public void onResponse(JSONArray jsonArray) {
                             crimeLoading = false;
                             try {
-                                System.out.println(jsonArray.length());
                                 callback.onSuccess(Crime.fromJSONArray(jsonArray));
-
                             } catch (JSONException e) {
                                 e.printStackTrace();
                             }
 
                         }
-                    }, new ServerUtils.ServerResponse<ArrayList<Crime>>().simpleError(callback)) {
+                    }, new Utils.ServerResponse<ArrayList<Crime>>().simpleError(callback)) {
                 @Override
                 public String getBodyContentType() {
                     return "application/json; charset=utf-8";
@@ -68,7 +72,7 @@ public class Server {
             mRequestQueue.add(jsonObjectRequest);
             crimeLoading = true;
         } else {
-            callback.onFail(ServerConstants.CONNECTION_ERROR);
+            callback.onFail(Constants.CONNECTION_ERROR);
         }
 //        try {
 //            JSONArray jsonArray = Utils.readJSONArray(context, R.raw.crime_data);
@@ -78,9 +82,9 @@ public class Server {
 //        }
 
     }
-    public void getHeatMap(final ServerUtils.Callback<ArrayList<WeightedLatLng>, String> callback) {
-        if(ServerUtils.isReadyForQuery(context)) {
-            String url = ServerConstants.API_URL + "heatmap";
+    public void getHeatMap(final Utils.Callback<ArrayList<WeightedLatLng>, String> callback) {
+        if(Utils.isReadyForQuery(context)) {
+            String url = Constants.API_URL + "heatmap";
             JsonArrayRequest jsonArrayRequest = new JsonArrayRequest(Request.Method.GET, url, null,
                     new Response.Listener<JSONArray>() {
                         @Override
@@ -98,7 +102,7 @@ public class Server {
                             callback.onSuccess(points);
 
                         }
-                    }, new ServerUtils.ServerResponse<ArrayList<WeightedLatLng>>().simpleError(callback)) {
+                    }, new Utils.ServerResponse<ArrayList<WeightedLatLng>>().simpleError(callback)) {
                 @Override
                 public String getBodyContentType() {
                     return "application/json; charset=utf-8";
@@ -106,38 +110,22 @@ public class Server {
             };
             mRequestQueue.add(jsonArrayRequest);
         } else {
-            callback.onFail(ServerConstants.CONNECTION_ERROR);
+            callback.onFail(Constants.CONNECTION_ERROR);
         }
 
     }
-    public void getHighestBuilding(final ServerUtils.Callback<LatLng, String> callback, LatLng point) {
-//        if(ServerUtils.isReadyForQuery(context)) {
-//            String url = ServerConstants.API_URL;
-//            JsonArrayRequest jsonObjectRequest = new JsonArrayRequest(Request.Method.GET, url, null,
-//                    new Response.Listener<JSONArray>() {
-//                        @Override
-//                        public void onResponse(JSONArray jsonArray) {
-//                            callback.onSuccess(null);
-//                        }
-//                    }, new ServerUtils.ServerResponse<String>().simpleError(callback)) {
-//                @Override
-//                public String getBodyContentType() {
-//                    return "application/json; charset=utf-8";
-//                }
-//            };
-//            mRequestQueue.add(jsonObjectRequest);
-//        } else {
-//            callback.onFail(ServerConstants.CONNECTION_ERROR);
-//        }
-        LatLng building = new LatLng(51.6,0);
-        callback.onSuccess(building);
-    }
 
-    public void getDirections(final ServerUtils.Callback<ArrayList<LatLng>,String> callback, LatLng from, LatLng to) {
-        if(ServerUtils.isReadyForQuery(context)) {
+    /**
+     * Fetches directions from Mapquest API between two points and extracts all turning points into a list
+     * @param callback Callback to pass data
+     * @param from Starting point
+     * @param to Ending point
+     */
+    public void getDirections(final Utils.Callback<ArrayList<LatLng>,String> callback, LatLng from, LatLng to) {
+        if(Utils.isReadyForQuery(context)) {
             String fromString = "from="+Double.toString(from.latitude)+","+Double.toString(from.longitude);
             String toString = "to="+Double.toString(to.latitude)+","+Double.toString(to.longitude);
-            String url = ServerConstants.DIRECTIONS_API_URL + "&" + fromString + "&" + toString;
+            String url = Constants.DIRECTIONS_API_URL + context.getString(R.string.mapquest_api_key) + "&" + fromString + "&" + toString;
             JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.GET, url, null,
                     new Response.Listener<JSONObject>() {
                         @Override
@@ -159,7 +147,7 @@ public class Server {
                             }
                             callback.onSuccess(points);
                         }
-                    }, new ServerUtils.ServerResponse<ArrayList<LatLng>>().simpleError(callback)) {
+                    }, new Utils.ServerResponse<ArrayList<LatLng>>().simpleError(callback)) {
                 @Override
                 public String getBodyContentType() {
                     return "application/json; charset=utf-8";
@@ -167,14 +155,23 @@ public class Server {
             };
             mRequestQueue.add(jsonObjectRequest);
         } else {
-            callback.onFail(ServerConstants.CONNECTION_ERROR);
+            callback.onFail(Constants.CONNECTION_ERROR);
         }
     }
-    public void getSessionId(final ServerUtils.Callback<String,String> callback, LatLng from, LatLng to) {
-        if(ServerUtils.isReadyForQuery(context)) {
+
+    /**
+     * Sends request to Mapquest API for a route between two points and extracts sessionId which will be later used in
+     * getRouteShape() to get the shape of the route
+     * This procedure gives more accurate shape than getDirections()
+     * @param callback Callback to pass data
+     * @param from Starting point
+     * @param to Ending point
+     */
+    public void getSessionId(final Utils.Callback<String,String> callback, LatLng from, LatLng to) {
+        if(Utils.isReadyForQuery(context)) {
             String fromString = "from="+Double.toString(from.latitude)+","+Double.toString(from.longitude);
             String toString = "to="+Double.toString(to.latitude)+","+Double.toString(to.longitude);
-            String url = ServerConstants.DIRECTIONS_API_URL + "&" + fromString + "&" + toString;
+            String url = Constants.DIRECTIONS_API_URL + context.getString(R.string.mapquest_api_key) + "&" + fromString + "&" + toString;
             JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.GET, url, null,
                     new Response.Listener<JSONObject>() {
                         @Override
@@ -190,7 +187,7 @@ public class Server {
                             }
                             callback.onSuccess(session);
                         }
-                    }, new ServerUtils.ServerResponse<String>().simpleError(callback)) {
+                    }, new Utils.ServerResponse<String>().simpleError(callback)) {
                 @Override
                 public String getBodyContentType() {
                     return "application/json; charset=utf-8";
@@ -198,12 +195,20 @@ public class Server {
             };
             mRequestQueue.add(jsonObjectRequest);
         } else {
-            callback.onFail(ServerConstants.CONNECTION_ERROR);
+            callback.onFail(Constants.CONNECTION_ERROR);
         }
     }
-    public void getRouteShape(final ServerUtils.Callback<ArrayList<LatLng>,String> callback, LatLng from, String sessionId) {
-        if(ServerUtils.isReadyForQuery(context)) {
-            String url = ServerConstants.ROUTE_SHAPE_API_URL + "&sessionId="+sessionId+"&mapWidth=320&mapHeight=240&mapScale=1733371&mapLat="+Double.toString(from.latitude)+"&mapLng="+Double.toString(from.longitude);
+
+    /**
+     * Sends request to Mapquest API for a route shape based on a sessionId fetched earlier in getSessionId()
+     * More accurate than getDirections()
+     * @param callback Callback to pass data
+     * @param from Starting point. Used only to center the map. Required argument by the API
+     * @param sessionId SessionId fetched in getSessionId()
+     */
+    public void getRouteShape(final Utils.Callback<ArrayList<LatLng>,String> callback, LatLng from, String sessionId) {
+        if(Utils.isReadyForQuery(context)) {
+            String url = Constants.ROUTE_SHAPE_API_URL + context.getString(R.string.mapquest_api_key) + "&sessionId="+sessionId+"&mapWidth=320&mapHeight=240&mapScale=1733371&mapLat="+Double.toString(from.latitude)+"&mapLng="+Double.toString(from.longitude);
             JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.GET, url, null,
                     new Response.Listener<JSONObject>() {
                         @Override
@@ -224,7 +229,7 @@ public class Server {
                             }
                             callback.onSuccess(points);
                         }
-                    }, new ServerUtils.ServerResponse<ArrayList<LatLng>>().simpleError(callback)) {
+                    }, new Utils.ServerResponse<ArrayList<LatLng>>().simpleError(callback)) {
                 @Override
                 public String getBodyContentType() {
                     return "application/json; charset=utf-8";
@@ -232,9 +237,7 @@ public class Server {
             };
             mRequestQueue.add(jsonObjectRequest);
         } else {
-            callback.onFail(ServerConstants.CONNECTION_ERROR);
+            callback.onFail(Constants.CONNECTION_ERROR);
         }
     }
-
-
 }

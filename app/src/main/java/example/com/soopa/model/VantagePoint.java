@@ -5,6 +5,8 @@ import com.google.android.gms.maps.model.LatLng;
 public class VantagePoint {
     private final LatLng position;
     private final double height;
+
+    // Field names used in server requests
     public static final String SERVER_LAT = "lat";
     public static final String SERVER_LNG = "lng";
     public static final String SERVER_HEIGHT = "height";

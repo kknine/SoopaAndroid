@@ -14,6 +14,8 @@ public class Crime {
     private final int crimeDuration;
     private final ArrayList<VantagePoint> vantagePoints;
     private final int severity;
+
+    // Field names used in server requests
     public static final String SERVER_LAT = "lat";
     public static final String SERVER_LNG = "lng";
     public static final String SERVER_CRIME_TYPE = "type";
@@ -29,6 +31,11 @@ public class Crime {
         this.severity = severity;
     }
 
+    /**
+     * Constructor to create object directly from JSONObject
+     * @param jsonCrime JSONObject containing crime
+     * @throws JSONException When can't parse JSONObject
+     */
     public Crime(JSONObject jsonCrime) throws JSONException {
         JSONArray jsonVantagePoints = jsonCrime.getJSONArray(SERVER_VANTAGE_POINTS);
         ArrayList<VantagePoint> vantagePoints = new ArrayList<>();
@@ -63,6 +70,12 @@ public class Crime {
         return severity;
     }
 
+    /**
+     * Creates a list of Crime objects directly from JSONArray
+     * @param jsonArray JSONArray of Crime objects
+     * @return a list of crimes
+     * @throws JSONException when can't parse JSONArray
+     */
     public static ArrayList<Crime> fromJSONArray(JSONArray jsonArray) throws JSONException {
         ArrayList<Crime> crimes = new ArrayList<>();
         for (int i = 0; i < jsonArray.length(); i++) {
